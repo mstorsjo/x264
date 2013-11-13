@@ -291,8 +291,9 @@ void x264_cli_log( const char *name, int i_level, const char *fmt, ... )
 
 void x264_cli_printf( int i_level, const char *fmt, ... )
 {
-    if( i_level > cli_log_level )
+    if( i_level > cli_log_level ) {
         return;
+    }
     va_list arg;
     va_start( arg, fmt );
     x264_vfprintf( stderr, fmt, arg );
@@ -1784,8 +1785,9 @@ static int64_t print_status( int64_t i_start, int64_t i_previous, int i_frame, i
 {
     char buf[200];
     int64_t i_time = x264_mdate();
-    if( i_previous && i_time - i_previous < UPDATE_INTERVAL )
+    if( i_previous && i_time - i_previous < UPDATE_INTERVAL ) {
         return i_previous;
+    }
     int64_t i_elapsed = i_time - i_start;
     double fps = i_elapsed > 0 ? i_frame * 1000000. / i_elapsed : 0;
     double bitrate;

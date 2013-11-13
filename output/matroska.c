@@ -178,8 +178,9 @@ static int write_frame( hnd_t handle, uint8_t *p_nalu, int i_size, x264_picture_
         p_mkv->b_writing_frame = 1;
     }
 
-    if( mk_add_frame_data( p_mkv->w, p_nalu, i_size ) < 0 )
+    if( mk_add_frame_data( p_mkv->w, p_nalu, i_size ) < 0 ) {
         return -1;
+    }
 
     int64_t i_stamp = (int64_t)((p_picture->i_pts * 1e9 * p_mkv->i_timebase_num / p_mkv->i_timebase_den) + 0.5);
 

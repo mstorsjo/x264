@@ -1848,8 +1848,9 @@ static int x264_check_encapsulated_buffer( x264_t *h, x264_t *h0, int start,
         uint8_t *buf = x264_malloc( necessary_size );
         if( !buf )
             return -1;
-        if( previous_nal_size )
+        if( previous_nal_size ) {
             memcpy( buf, h0->nal_buffer, previous_nal_size );
+        }
 
         intptr_t delta = buf - h0->nal_buffer;
         for( int i = 0; i < start; i++ )
@@ -1885,8 +1886,9 @@ static int x264_encoder_encapsulate_nals( x264_t *h, int start )
     int necessary_size = previous_nal_size + nal_size * 3/2 + h->out.i_nal * 4 + 4 + 64;
     for( int i = start; i < h->out.i_nal; i++ )
         necessary_size += h->out.nal[i].i_padding;
-    if( x264_check_encapsulated_buffer( h, h0, start, previous_nal_size, necessary_size ) )
+    if( x264_check_encapsulated_buffer( h, h0, start, previous_nal_size, necessary_size ) ) {
         return -1;
+    }
 
     uint8_t *nal_buffer = h0->nal_buffer + previous_nal_size;
 
@@ -2693,8 +2695,9 @@ reencode:
         if( slice_max_size && (!SLICE_MBAFF || (i_mb_y&1)) )
         {
             /* Count the skip run, just in case. */
-            if( !h->param.b_cabac )
+            if( !h->param.b_cabac ) {
                 total_bits += bs_size_ue_big( i_skip );
+            }
             /* Check for escape bytes. */
             uint8_t *end = h->param.b_cabac ? h->cabac.p : h->out.bs.p;
             for( ; last_emu_check < end - 2; last_emu_check++ )

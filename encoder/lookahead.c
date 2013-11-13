@@ -141,8 +141,9 @@ int x264_lookahead_init( x264_t *h, int i_slicetype_length )
         x264_sync_frame_list_init( &look->ofbuf, h->frames.i_delay+3 ) )
         goto fail;
 
-    if( !h->param.i_sync_lookahead )
+    if( !h->param.i_sync_lookahead ) {
         return 0;
+    }
 
     x264_t *look_h = h->thread[h->param.i_threads];
     *look_h = *h;

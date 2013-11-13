@@ -48,7 +48,7 @@
 #define log2(x) (log(x)/0.693147180559945)
 #endif
 
-#ifdef __ICL
+#if defined(__ICL) || defined(_MSC_VER)
 #define inline __inline
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -87,7 +87,7 @@ int x264_vfprintf( FILE *stream, const char *format, va_list arg );
 #define x264_vfprintf    vfprintf
 #endif
 
-#ifdef __ICL
+#if defined(__ICL) || defined(_MSC_VER)
 #define DECLARE_ALIGNED( var, n ) __declspec(align(n)) var
 #else
 #define DECLARE_ALIGNED( var, n ) var __attribute__((aligned(n)))

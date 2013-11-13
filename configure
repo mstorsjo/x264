@@ -84,7 +84,10 @@ intel_cflags() {
         [[ "$arg" = -mpreferred-stack-boundary* ]] && arg=
         [[ "$arg" = -l* ]] && arg=
         [[ "$arg" = -L* ]] && arg=
-        if [ $compiler = ICL ]; then
+        if [ $compiler = CL ]; then
+            [[ "$arg" = -O3 ]] && arg=-O2
+        fi
+        if [ $compiler = ICL ] || [ $compiler = CL ]; then
             [ "$arg" = -Wall ] && arg=-W0
             [ "$arg" = -g ] && arg=-Z7
             [ "$arg" = -fomit-frame-pointer ] && arg=
@@ -136,7 +139,7 @@ cc_check() {
     rm -f conftest.c
     [ -n "$1" ] && echo "#include <$1>" > conftest.c
     echo "int main () { $3 return 0; }" >> conftest.c
-    if [ $compiler = ICL ]; then
+    if [ $compiler = ICL ] || [ $compiler = CL ]; then
         cc_cmd="$CC conftest.c $(intel_cflags $CFLAGS $2) -link $(icl_ldflags $2 $LDFLAGSCLI $LDFLAGS)"
     else
         cc_cmd="$CC conftest.c $CFLAGS $2 $LDFLAGSCLI $LDFLAGS -o conftest"
@@ -208,7 +211,7 @@ as_check() {
 rc_check() {
     log_check "whether $RC works"
     echo "$1" > conftest.rc
-    if [ $compiler = ICL ]; then
+    if [ $compiler = ICL ] || [ $compiler = CL ]; then
         rc_cmd="$RC $RCFLAGS -foconftest.o conftest.rc"
     else
         rc_cmd="$RC $RCFLAGS -o conftest.o conftest.rc"
@@ -450,6 +453,12 @@ if [[ $host_os = mingw* || $host_os = cygwin* ]]; then
         `$CC 2>&1 | grep -q IA-32` && host_cpu=i486
         `$CC 2>&1 | grep -q "Intel(R) 64"` && host_cpu=x86_64
         cpp_check "" "" "_MSC_VER >= 1400" || die "Windows Intel Compiler support requires Visual Studio 2005 or newer"
+    elif [[ `basename "$CC"` = cl* ]]; then
+        [[ $host_os = cygwin* ]] && die "MSVC Compiler support requires MSYS"
+        compiler=CL
+        CFLAGS="$CFLAGS -nologo -DHAVE_STRING_H -I\$(SRCPATH)/extras"
+        `$CC 2>&1 | grep -q x86` && host_cpu=i486
+        `$CC 2>&1 | grep -q x64` && host_cpu=x86_64
     fi
 else
     if [[ `basename "$CC"` = icc* ]]; then
@@ -521,7 +530,7 @@ case $host_os in
         EXE=".exe"
         DEVNULL="NUL"
         LDFLAGSCLI="$LDFLAGSCLI -lshell32"
-        [ $compiler = ICL ] && RC="${RC-rc}" || RC="${RC-${cross_prefix}windres}"
+        ([ $compiler = ICL ] || [ $compiler = CL ]) && RC="${RC-rc}" || RC="${RC-${cross_prefix}windres}"
         ;;
     sunos*|solaris*)
         SYS="SunOS"
@@ -703,12 +712,16 @@ log_msg ""
 
 cc_check || die "No working C compiler found."
 
-if [ $compiler != ICL ]; then
+if [ $compiler != ICL ] && [ $compiler != CL ]; then
     if cc_check '' -std=gnu99 'for( int i = 0; i < 9; i++ );' ; then
         CFLAGS="$CFLAGS -std=gnu99"
     elif cc_check '' -std=c99 'for( int i = 0; i < 9; i++ );' ; then
         CFLAGS="$CFLAGS -std=c99 -D_POSIX_C_SOURCE=200112L -D_BSD_SOURCE"
     elif ! cc_check '' '' 'for( int i = 0; i < 9; i++ );' ; then
+        die "C99 compiler is needed for compilation."
+    fi
+else
+    if ! cc_check '' '' 'for( int i = 0; i < 9; i++ );' ; then
         die "C99 compiler is needed for compilation."
     fi
 fi
@@ -725,7 +738,7 @@ if [ $asm = auto -a \( $ARCH = X86 -o $ARCH = X86_64 \) ] ; then
         echo "If you really want to compile without asm, configure with --disable-asm."
         exit 1
     fi
-    if ! cc_check '' '' '__asm__("pabsw %xmm0, %xmm0");' ; then
+    if ! cc_check '' '' '__asm__("pabsw %xmm0, %xmm0");' && [ $compiler != CL ]; then
         VER=`(${cross_prefix}as --version || echo no gnu as) 2>/dev/null | head -n 1`
         echo "Found $VER"
         echo "Minimum version is binutils-2.17"
@@ -1101,6 +1114,22 @@ if [ $compiler = ICL ]; then
     else
         CFLAGS="-DNDEBUG $CFLAGS"
     fi
+elif [ $compiler = CL ]; then
+    AR="lib -nologo -out:"
+    HAVE_GETOPT_LONG=0
+    LD="link -out:"
+    LDFLAGS="-nologo -incremental:no $(icl_ldflags $LDFLAGS)"
+    LDFLAGSCLI="$(icl_ldflags $LDFLAGSCLI)"
+    LIBX264=libx264.lib
+    RANLIB=
+    [ -n "$RC" ] && RCFLAGS="$RCFLAGS -I. -I\$(SRCPATH)/extras -fo"
+    STRIP=
+    if [ $debug = yes ]; then
+        LDFLAGS="-debug $LDFLAGS"
+        CFLAGS="-D_DEBUG $CFLAGS"
+    else
+        CFLAGS="-DNDEBUG $CFLAGS"
+    fi
 else
     AR="$AR rc "
     DEPMM="-MM -g0"
@@ -1173,9 +1202,13 @@ PROF_USE_LD=$PROF_USE_LD
 HAVE_OPENCL=$opencl
 EOF
 
-if [ $compiler = ICL ]; then
+if [ $compiler = ICL ] || [ $compiler = CL ]; then
     echo '%.o: %.c' >> config.mak
     echo '	$(CC) $(CFLAGS) -c -Fo$@ $<' >> config.mak
+fi
+
+if [ $compiler != CL ]; then
+    echo 'HAVE_DEPEND=yes' >> config.mak
 fi
 
 if [ "$cli" = "yes" ]; then
@@ -1187,7 +1220,7 @@ if [ "$shared" = "yes" ]; then
     API=$(grep '#define X264_BUILD' < ${SRCPATH}/x264.h | cut -f 3 -d ' ')
     if [ "$SYS" = "WINDOWS" -o "$SYS" = "CYGWIN" ]; then
         echo "SONAME=libx264-$API.dll" >> config.mak
-        if [ $compiler = ICL ]; then
+        if [ $compiler = ICL ] || [ $compiler = CL ]; then
             echo 'IMPLIBNAME=libx264.dll.lib' >> config.mak
             # GNU ld on windows defaults to exporting all global functions if there are no explicit __declspec(dllexport) declarations
             # MSVC link does not act similarly, so it is required to make an export definition out of x264.h and use it at link time

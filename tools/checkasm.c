@@ -3130,7 +3130,7 @@ static int check_all_flags( void )
 
 REALIGN_STACK int main( int argc, char **argv )
 {
-#ifdef _WIN32
+#if 0
     /* Disable the Windows Error Reporting dialog */
     SetErrorMode( SEM_NOGPFAULTERRORBOX );
 #endif

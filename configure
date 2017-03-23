@@ -917,10 +917,10 @@ if [ $SYS = WINDOWS ]; then
     fi
 
     if cpp_check "winapifamily.h" "" "!WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)" ; then
-        [ $compiler = CL ] || die "WinRT requires MSVC"
+#        [ $compiler = CL ] || die "WinRT requires MSVC"
         define HAVE_WINRT
-        CFLAGS="$CFLAGS -MD"
-        LDFLAGS="$LDFLAGS -appcontainer"
+#        CFLAGS="$CFLAGS -MD"
+#        LDFLAGS="$LDFLAGS -appcontainer"
         if ! cpp_check "" "" "defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0603" ; then
             die "_WIN32_WINNT must be defined to at least 0x0603 (Windows 8.1) for WinRT"
         elif cpp_check "" "" "_WIN32_WINNT >= 0x0A00" ; then

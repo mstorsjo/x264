@@ -111,7 +111,7 @@ static inline uint32_t read_time(void)
     asm volatile( "mftb %0" : "=r"(a) :: "memory" );
 #elif HAVE_ARM_INLINE_ASM    // ARMv7 only
     asm volatile( "mrc p15, 0, %0, c9, c13, 0" : "=r"(a) :: "memory" );
-#elif ARCH_AARCH64
+#elif ARCH_AARCH64 && !defined(_MSC_VER)
     uint64_t b = 0;
     asm volatile( "mrs %0, pmccntr_el0" : "=r"(b) :: "memory" );
     a = b;
@@ -308,10 +308,8 @@ void x264_checkasm_stack_clobber( uint64_t clobber, ... );
     x264_checkasm_call(( intptr_t(*)())func, &ok, 0, 0, 0, 0, __VA_ARGS__ ); })
 #elif HAVE_AARCH64 && !defined(__APPLE__)
 void x264_checkasm_stack_clobber( uint64_t clobber, ... );
-#define call_a1(func,...) ({ \
-    uint64_t r = (rand() & 0xffff) * 0x0001000100010001ULL; \
-    x264_checkasm_stack_clobber( r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r ); /* max_args+8 */ \
-    x264_checkasm_call(( intptr_t(*)())func, &ok, 0, 0, 0, 0, 0, 0, __VA_ARGS__ ); })
+#define call_a1(func,...) \
+    x264_checkasm_call(( intptr_t(*)())func, &ok, 0, 0, 0, 0, 0, 0, __VA_ARGS__ )
 #elif HAVE_MMX || HAVE_ARMV6
 #define call_a1(func,...) x264_checkasm_call( (intptr_t(*)())func, &ok, __VA_ARGS__ )
 #elif ARCH_LOONGARCH && HAVE_LSX

@@ -209,18 +209,17 @@ jobs:
           docker run --rm -v $(pwd):/host ghcr.io/mstorsjo/wine wine /host/checkasm10.exe
 
   msvc-wine:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # 10.0.26100 contains flags for detecting modern aarch64 extensions,
         # but has removed the ARM architecture, so use an older SDK for ARM.
         include:
-          - { arch: x86, triple: i386-pc-mingw32, runner: ubuntu-latest, image: 'ubuntu:24.04', sdk: 10.0.26100 }
-          - { arch: x64, triple: x86_64-pc-mingw32, runner: ubuntu-latest, image: 'ubuntu:24.04', sdk: 10.0.26100 }
-          - { arch: arm, triple: armv7-pc-mingw32, runner: ubuntu-24.04-arm, image: ghcr.io/mstorsjo/wine, sdk: 10.0.22621 }
-          - { arch: arm64, triple: aarch64-pc-mingw32, runner: ubuntu-24.04-arm, image: ghcr.io/mstorsjo/wine, sdk: 10.0.26100 }
-    runs-on: ${{matrix.runner}}
-    container: ${{matrix.image}}
+          - { arch: x86, triple: i386-pc-mingw32, sdk: 10.0.26100 }
+          - { arch: x64, triple: x86_64-pc-mingw32, sdk: 10.0.26100 }
+          - { arch: arm, triple: armv7-pc-mingw32, sdk: 10.0.22621 }
+          - { arch: arm64, triple: aarch64-pc-mingw32, sdk: 10.0.26100 }
     steps:
       - name: Checkout msvc-wine
         uses: actions/checkout@v4
@@ -229,34 +228,34 @@ jobs:
           ref: 49ae4b63f350770584469317e3995d100d4dcd39
           path: msvc-wine
       - name: Install wine
-        if: ${{matrix.runner == 'ubuntu-latest'}}
         run: |
-          dpkg --add-architecture i386
-          apt-get update && apt-get install -y wine32 wine64
+          sudo dpkg --add-architecture i386
+          sudo apt-get update && sudo apt-get install -y wine32 wine64
       - name: Install msvc-wine
-        env:
-          WINEPREFIX: /tmp/wine-prefix
         run: |
-          apt-get update && apt-get install -y --no-install-recommends python3 msitools ca-certificates winbind
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends python3 msitools ca-certificates winbind
           wine wineboot
           msvc-wine/vsdownload.py --accept-license --dest /opt/msvc --sdk-version ${{matrix.sdk}}
           msvc-wine/install.sh /opt/msvc
       - uses: actions/checkout@v4
       - name: Build
-        env:
-          WINEPREFIX: /tmp/wine-prefix
         run: |
-          apt-get update && apt-get install nasm make
+          sudo apt-get update && sudo apt-get install nasm make
           mkdir build
           cd build
           export PATH=/opt/msvc/bin/${{matrix.arch}}:$PATH
           CC=cl ../configure --host=${{matrix.triple}}
           make -j$(nproc)
           make -j$(nproc) checkasm
-      - name: Test checkasm
-        env:
-          WINEPREFIX: /tmp/wine-prefix
+      - name: Test checkasm (wine)
+        if: ${{matrix.arch == 'x86' || matrix.arch == 'x64'}}
         run: |
           cd build
           wine checkasm8.exe
           wine checkasm10.exe
+      - name: Test checkasm (wine-arm64)
+        if: ${{matrix.arch == 'arm64'}}
+        run: |
+          cd build
+          docker run --rm -v $(pwd):/host linaro/wine-arm64 wine-arm64 /host/checkasm8.exe
+          docker run --rm -v $(pwd):/host linaro/wine-arm64 wine-arm64 /host/checkasm10.exe

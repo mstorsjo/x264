@@ -127,14 +127,14 @@ jobs:
           ./checkasm10
 
   msvc:
-    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - { arch: amd64_x86, triple: i386-pc-mingw32 }
           - { arch: x64, triple: x86_64-pc-mingw32 }
-          - { arch: amd64_arm64, triple: aarch64-pc-mingw32 }
+          - { arch: arm64, triple: aarch64-pc-mingw32 }
+    runs-on: ${{startsWith(matrix.arch, 'a') && 'windows-11-arm' || 'windows-latest'}}
     steps:
       - name: Set up the environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -157,7 +157,12 @@ jobs:
           cd build
           CC=cl ../configure --host=${{matrix.triple}}
           make -j$(nproc)
-          # x264's checkasm can't be built with MSVC, so no testing here.
+          make -j$(nproc) checkasm
+      - name: Test checkasm
+        run: |
+          cd build
+          ./checkasm8.exe
+          ./checkasm10.exe
 
   llvm-mingw:
     strategy:
@@ -239,15 +244,18 @@ jobs:
           ./checkasm10.exe
 
   msvc-wine:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        # 10.0.26100 contains flags for detecting modern aarch64 extensions,
+        # but has removed the ARM architecture, so use an older SDK for ARM.
         include:
           - { arch: x86, triple: i386-pc-mingw32 }
           - { arch: x64, triple: x86_64-pc-mingw32 }
           - { arch: arm, triple: armv7-pc-mingw32, sdk: 10.0.22621 }
-          - { arch: arm64, triple: aarch64-pc-mingw32 }
+          - { arch: arm64, triple: aarch64-pc-mingw32, sdk: 10.0.26100 }
+    runs-on: ${{startsWith(matrix.arch, 'a') && 'ubuntu-24.04-arm' || 'ubuntu-latest'}}
+    container: ${{startsWith(matrix.arch, 'a') && 'ghcr.io/mstorsjo/wine' || ''}}
     steps:
       - name: Checkout msvc-wine
         uses: actions/checkout@v4
@@ -255,9 +263,14 @@ jobs:
           repository: mstorsjo/msvc-wine
           ref: 32b504c63b869681cda6824a20e30b74cb718432
           path: msvc-wine
+      - name: Install wine
+        if: ${{!startsWith(matrix.arch, 'a')}}
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update && sudo apt-get install -y wine32 wine64
       - name: Install msvc-wine
         run: |
-          sudo apt-get update && sudo apt-get install --no-install-recommends wine python3 msitools ca-certificates winbind
+          sudo apt-get update && sudo apt-get install --no-install-recommends python3 msitools ca-certificates winbind
           wine wineboot
           msvc-wine/vsdownload.py --accept-license --dest /opt/msvc ${{matrix.sdk != '' && '--sdk-version' || ''}} ${{matrix.sdk}} --msvc-version 17.14
           msvc-wine/install.sh /opt/msvc
@@ -270,4 +283,9 @@ jobs:
           export PATH=/opt/msvc/bin/${{matrix.arch}}:$PATH
           CC=cl ../configure --host=${{matrix.triple}}
           make -j$(nproc)
-          # x264's checkasm can't be built with MSVC, so no testing here.
+          make -j$(nproc) checkasm
+      - name: Test checkasm
+        run: |
+          cd build
+          wine checkasm8.exe
+          wine checkasm10.exe

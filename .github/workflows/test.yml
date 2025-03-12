@@ -161,20 +161,20 @@ jobs:
           # x264's checkasm can't be built with MSVC, so no testing here.
 
   llvm-mingw:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - i686
-          - x86_64
-          - armv7
-          - aarch64
+        include:
+          - { arch: i686, runner: ubuntu-latest }
+          - { arch: x86_64, runner: ubuntu-latest }
+          - { arch: armv7, runner: ubuntu-24.04-arm }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{matrix.runner}}
     steps:
       - name: Install llvm-mingw
         run: |
-          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250305/llvm-mingw-20250305-ucrt-ubuntu-20.04-x86_64.tar.xz
-          tar -Jxf llvm-mingw-*-ucrt-ubuntu-*-x86_64.tar.xz
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250305/llvm-mingw-20250305-ucrt-ubuntu-20.04-$(uname -m).tar.xz
+          tar -Jxf llvm-mingw-*-ucrt-ubuntu-*.tar.xz
           rm llvm-mingw-*.tar.xz
           mv llvm-mingw-* /opt/llvm-mingw
           echo /opt/llvm-mingw/bin >> $GITHUB_PATH
@@ -195,12 +195,12 @@ jobs:
           cd build
           wine checkasm8.exe
           wine checkasm10.exe
-      - name: Test checkasm (wine-arm64)
-        if: ${{matrix.arch == 'aarch64'}}
+      - name: Test checkasm (ghcr.io/mstorsjo/wine)
+        if: ${{matrix.arch == 'armv7' || matrix.arch == 'aarch64'}}
         run: |
           cd build
-          docker run --rm -v $(pwd):/host linaro/wine-arm64 wine-arm64 /host/checkasm8.exe
-          docker run --rm -v $(pwd):/host linaro/wine-arm64 wine-arm64 /host/checkasm10.exe
+          docker run --rm -v $(pwd):/host ghcr.io/mstorsjo/wine wine /host/checkasm8.exe
+          docker run --rm -v $(pwd):/host ghcr.io/mstorsjo/wine wine /host/checkasm10.exe
 
   msvc-wine:
     runs-on: ubuntu-latest

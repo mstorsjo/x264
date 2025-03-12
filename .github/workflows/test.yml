@@ -1,0 +1,273 @@
+name: Test building in various configurations
+
+on:
+  push:
+
+jobs:
+  linux-gcc:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    runs-on: ${{matrix.runner}}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test checkasm
+        run: |
+          sudo apt-get update && sudo apt-get install nasm
+          mkdir build
+          cd build
+          ../configure
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+          ./checkasm8
+          ./checkasm10
+
+  linux-clang:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    runs-on: ${{matrix.runner}}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test checkasm
+        run: |
+          sudo apt-get update && sudo apt-get install nasm clang
+          mkdir build
+          cd build
+          CC=clang ../configure
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+          ./checkasm8
+          ./checkasm10
+
+  linux-arm:
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        cc:
+          - arm-linux-gnueabihf-gcc
+          - clang -target armv7-linux-gnueabihf
+    steps:
+      - name: Install armv7 runtime and compilers
+        run: |
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update && sudo apt-get install gcc-arm-linux-gnueabihf libc6:armhf libstdc++6:armhf
+      - uses: actions/checkout@v4
+      - name: Build and test checkasm
+        run: |
+          sudo apt-get update && sudo apt-get install clang
+          mkdir build
+          cd build
+          CC="${{matrix.cc}}" ../configure --host=arm-linux-gnueabihf --cross-prefix=arm-linux-gnueabihf- --enable-pic
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+          ./checkasm8
+          ./checkasm10
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-15-intel
+          - macos-14
+    runs-on: ${{matrix.runner}}
+    steps:
+      - name: Install prerequisites
+        run: |
+          brew install nasm
+      - uses: actions/checkout@v4
+      - name: Build and test checkasm
+        run: |
+          mkdir build
+          cd build
+          ../configure
+          make -j$(sysctl -n hw.ncpu)
+          make -j$(sysctl -n hw.ncpu) checkasm
+          ./checkasm8
+          ./checkasm10
+
+  msys2:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        sys:
+          - mingw64
+          - clang64
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{matrix.sys}}
+          install: >-
+            git
+            make
+          pacboy: >-
+            toolchain:p
+            nasm:p
+      - uses: actions/checkout@v4
+      - name: Build and test checkasm
+        run: |
+          mkdir build
+          cd build
+          CC=cc ../configure
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+          ./checkasm8
+          ./checkasm10
+
+  msvc:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64_x86, triple: i386-pc-mingw32 }
+          - { arch: x64, triple: x86_64-pc-mingw32 }
+          - { arch: amd64_arm64, triple: aarch64-pc-mingw32 }
+    steps:
+      - name: Set up the environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: ${{matrix.sdk}}
+          arch: ${{matrix.arch}}
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: msys
+          path-type: inherit
+          install: >-
+            make
+            nasm
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          mkdir build
+          cd build
+          CC=cl ../configure --host=${{matrix.triple}}
+          make -j$(nproc)
+          # x264's checkasm can't be built with MSVC, so no testing here.
+
+  llvm-mingw:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - i686
+          - x86_64
+          - armv7
+          - aarch64
+    runs-on: ${{startsWith(matrix.arch, 'a') && 'ubuntu-24.04-arm' || 'ubuntu-latest'}}
+    container: ${{startsWith(matrix.arch, 'a') && 'ghcr.io/mstorsjo/wine' || ''}}
+    steps:
+      - name: Install llvm-mingw
+        run: |
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250305/llvm-mingw-20250305-ucrt-ubuntu-20.04-$(uname -m).tar.xz
+          tar -Jxf llvm-mingw-*-ucrt-ubuntu-*.tar.xz
+          rm llvm-mingw-*.tar.xz
+          mv llvm-mingw-* /opt/llvm-mingw
+          echo /opt/llvm-mingw/bin >> $GITHUB_PATH
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          sudo apt-get update && sudo apt-get install nasm
+          mkdir build
+          cd build
+          ../configure --host=${{matrix.arch}}-w64-mingw32 --cross-prefix=${{matrix.arch}}-w64-mingw32-
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+      - name: Install wine
+        if: ${{matrix.arch == 'i686' || matrix.arch == 'x86_64'}}
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update && sudo apt-get install wine32 wine64
+      - name: Test checkasm
+        run: |
+          cd build
+          wine checkasm8.exe
+          wine checkasm10.exe
+
+  llvm-mingw-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - i686
+          - x86_64
+          - aarch64
+    runs-on: ${{startsWith(matrix.arch, 'a') && 'windows-11-arm' || 'windows-latest'}}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: msys
+          install: >-
+            unzip
+            make
+            nasm
+      - name: Install llvm-mingw
+        run: |
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20231128/llvm-mingw-20231128-ucrt-${{startswith(matrix.arch, 'a') && 'aarch64' || 'x86_64'}}.zip
+          unzip -q llvm-mingw-*.zip
+          rm llvm-mingw-*.zip
+          mv llvm-mingw-* /llvm-mingw
+          echo /llvm-mingw/bin >> $GITHUB_PATH
+      - name: Build and test checkasm
+        shell: msys2 {0}
+        run: |
+          export PATH=/llvm-mingw/bin:$PATH
+          mkdir build
+          cd build
+          ../configure --host=${{matrix.arch}}-w64-mingw32 --cross-prefix=${{matrix.arch}}-w64-mingw32-
+          make -j$(nproc)
+          make -j$(nproc) checkasm
+          ./checkasm8.exe
+          ./checkasm10.exe
+
+  msvc-wine:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86, triple: i386-pc-mingw32 }
+          - { arch: x64, triple: x86_64-pc-mingw32 }
+          - { arch: arm, triple: armv7-pc-mingw32, sdk: 10.0.22621 }
+          - { arch: arm64, triple: aarch64-pc-mingw32 }
+    steps:
+      - name: Checkout msvc-wine
+        uses: actions/checkout@v4
+        with:
+          repository: mstorsjo/msvc-wine
+          ref: 32b504c63b869681cda6824a20e30b74cb718432
+          path: msvc-wine
+      - name: Install msvc-wine
+        run: |
+          sudo apt-get update && sudo apt-get install --no-install-recommends wine python3 msitools ca-certificates winbind
+          wine wineboot
+          msvc-wine/vsdownload.py --accept-license --dest /opt/msvc ${{matrix.sdk != '' && '--sdk-version' || ''}} ${{matrix.sdk}} --msvc-version 17.14
+          msvc-wine/install.sh /opt/msvc
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          sudo apt-get update && sudo apt-get install nasm
+          mkdir build
+          cd build
+          export PATH=/opt/msvc/bin/${{matrix.arch}}:$PATH
+          CC=cl ../configure --host=${{matrix.triple}}
+          make -j$(nproc)
+          # x264's checkasm can't be built with MSVC, so no testing here.

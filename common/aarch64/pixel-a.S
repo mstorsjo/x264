@@ -1453,6 +1453,37 @@ function pixel_ssim_4x4x2_core_neon, export=1
     ret
 endfunc
 
+#if HAVE_DOTPROD
+ENABLE_DOTPROD
+function x264_pixel_ssim_4x4x2_core_neon_dotprod, export=1
+    movi        v0.2d, #0
+    movi        v1.2d, #0
+    movi        v2.2d, #0
+    movi        v3.2d, #0
+    movi        v4.2d, #0
+    movi        v5.8b, #1
+
+    mov         w5, #4
+1:
+    ld1         {v16.8b},  [x0], x1
+    ld1         {v17.8b},  [x2], x3
+    udot        v0.2s, v16.8b, v5.8b
+    udot        v1.2s, v17.8b, v5.8b
+    udot        v2.2s, v16.8b, v16.8b
+    udot        v3.2s, v16.8b, v17.8b
+    udot        v4.2s, v17.8b, v17.8b
+
+    subs        w5, w5, #1
+    b.ne        1b
+
+    add         v2.4s, v2.4s, v4.4s
+
+    st4         {v0.2s,v1.2s,v2.2s,v3.2s}, [x4]
+    ret
+endfunc
+DISABLE_DOTPROD
+#endif // HAVE_DOTPROD
+
 function pixel_ssim_end4_neon, export=1
     mov         x5,  #4
     ld1         {v16.4s,v17.4s}, [x0], #32
@@ -1469,8 +1500,8 @@ function pixel_ssim_end4_neon, export=1
     add         v2.4s,  v20.4s, v22.4s
     add         v3.4s,  v21.4s, v23.4s
     add         v1.4s,  v1.4s,  v2.4s
-    ld1         {v16.4s}, [x0], #16
-    ld1         {v18.4s}, [x1], #16
+    ld1         {v16.4s}, [x0]
+    ld1         {v18.4s}, [x1]
     add         v16.4s, v16.4s, v18.4s
     add         v2.4s,  v2.4s,  v3.4s
     add         v3.4s,  v3.4s,  v16.4s

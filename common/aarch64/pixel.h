@@ -182,6 +182,10 @@ uint64_t x264_pixel_hadamard_ac_16x16_sve( pixel *, intptr_t );
 void x264_pixel_ssim_4x4x2_core_neon( const pixel *, intptr_t,
                                       const pixel *, intptr_t,
                                       int sums[2][4] );
+#define x264_pixel_ssim_4x4x2_core_neon_dotprod x264_template(x264_pixel_ssim_4x4x2_core_neon_dotprod)
+void x264_pixel_ssim_4x4x2_core_neon_dotprod( const pixel *, intptr_t,
+                                              const pixel *, intptr_t,
+                                              int sums[2][4] );
 #define x264_pixel_ssim_end4_neon x264_template(pixel_ssim_end4_neon)
 float x264_pixel_ssim_end4_neon( int sum0[5][4], int sum1[5][4], int width );
 

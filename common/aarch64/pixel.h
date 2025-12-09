@@ -126,6 +126,8 @@ DECL_X1( ssd, neon_dotprod )
 
 #define x264_pixel_ssd_nv12_core_neon x264_template(pixel_ssd_nv12_core_neon)
 void x264_pixel_ssd_nv12_core_neon( pixel *, intptr_t, pixel *, intptr_t, int, int, uint64_t *, uint64_t * );
+#define x264_pixel_ssd_nv12_core_neon_dotprod x264_template(pixel_ssd_nv12_core_neon_dotprod)
+void x264_pixel_ssd_nv12_core_neon_dotprod( pixel *, intptr_t, pixel *, intptr_t, int, int, uint64_t *, uint64_t * );
 
 #define x264_pixel_vsad_neon x264_template(pixel_vsad_neon)
 int x264_pixel_vsad_neon( pixel *, intptr_t, int );
@@ -150,10 +152,20 @@ uint64_t x264_pixel_var_8x8_neon  ( pixel *, intptr_t );
 uint64_t x264_pixel_var_8x16_neon ( pixel *, intptr_t );
 #define x264_pixel_var_16x16_neon x264_template(pixel_var_16x16_neon)
 uint64_t x264_pixel_var_16x16_neon( pixel *, intptr_t );
+#define x264_pixel_var_8x8_neon_dotprod x264_template(pixel_var_8x8_neon_dotprod)
+uint64_t x264_pixel_var_8x8_neon_dotprod  ( pixel *, intptr_t );
+#define x264_pixel_var_8x16_neon_dotprod x264_template(pixel_var_8x16_neon_dotprod)
+uint64_t x264_pixel_var_8x16_neon_dotprod ( pixel *, intptr_t );
+#define x264_pixel_var_16x16_neon_dotprod x264_template(pixel_var_16x16_neon_dotprod)
+uint64_t x264_pixel_var_16x16_neon_dotprod( pixel *, intptr_t );
 #define x264_pixel_var2_8x8_neon x264_template(pixel_var2_8x8_neon)
 int x264_pixel_var2_8x8_neon ( pixel *, pixel *, int * );
 #define x264_pixel_var2_8x16_neon x264_template(pixel_var2_8x16_neon)
 int x264_pixel_var2_8x16_neon( pixel *, pixel *, int * );
+#define x264_pixel_var2_8x8_neon_dotprod x264_template(pixel_var2_8x8_neon_dotprod)
+int x264_pixel_var2_8x8_neon_dotprod ( pixel *, pixel *, int * );
+#define x264_pixel_var2_8x16_neon_dotprod x264_template(pixel_var2_8x16_neon_dotprod)
+int x264_pixel_var2_8x16_neon_dotprod( pixel *, pixel *, int * );
 #define x264_pixel_var_8x8_sve x264_template(pixel_var_8x8_sve)
 uint64_t x264_pixel_var_8x8_sve  ( pixel *, intptr_t );
 #define x264_pixel_var_8x16_sve x264_template(pixel_var_8x16_sve)
@@ -182,10 +194,28 @@ uint64_t x264_pixel_hadamard_ac_16x16_sve( pixel *, intptr_t );
 void x264_pixel_ssim_4x4x2_core_neon( const pixel *, intptr_t,
                                       const pixel *, intptr_t,
                                       int sums[2][4] );
+#define x264_pixel_ssim_4x4x2_core_neon_dotprod x264_template(x264_pixel_ssim_4x4x2_core_neon_dotprod)
+void x264_pixel_ssim_4x4x2_core_neon_dotprod( const pixel *, intptr_t,
+                                              const pixel *, intptr_t,
+                                              int sums[2][4] );
 #define x264_pixel_ssim_end4_neon x264_template(pixel_ssim_end4_neon)
 float x264_pixel_ssim_end4_neon( int sum0[5][4], int sum1[5][4], int width );
 
 #define x264_pixel_asd8_neon x264_template(pixel_asd8_neon)
 int x264_pixel_asd8_neon( pixel *, intptr_t,  pixel *, intptr_t, int );
+
+#define x264_pixel_ads1_sve x264_template(pixel_ads1_sve)
+int x264_pixel_ads1_sve( int[1], uint16_t *, int, uint16_t *, int16_t *, int, int );
+#define x264_pixel_ads2_sve x264_template(pixel_ads2_sve)
+int x264_pixel_ads2_sve( int[2], uint16_t *, int, uint16_t *, int16_t *, int, int );
+#define x264_pixel_ads4_sve x264_template(pixel_ads4_sve)
+int x264_pixel_ads4_sve( int[4], uint16_t *, int, uint16_t *, int16_t *, int, int );
+
+#define x264_pixel_ads1_sve2 x264_template(pixel_ads1_sve2)
+int x264_pixel_ads1_sve2( int[1], uint16_t *, int, uint16_t *, int16_t *, int, int );
+#define x264_pixel_ads2_sve2 x264_template(pixel_ads2_sve2)
+int x264_pixel_ads2_sve2( int[2], uint16_t *, int, uint16_t *, int16_t *, int, int );
+#define x264_pixel_ads4_sve2 x264_template(pixel_ads4_sve2)
+int x264_pixel_ads4_sve2( int[4], uint16_t *, int, uint16_t *, int16_t *, int, int );
 
 #endif

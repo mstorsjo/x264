@@ -815,13 +815,12 @@ function pixel_ssd_nv12_core_neon\dotprod, export=1
 2:
     ld2         {v16.16b,v17.16b}, [x0], #32
     ld2         {v18.16b,v19.16b}, [x2], #32
+    subs        w8, w8, #16
 .ifc \dotprod, _dotprod
-    ENABLE_DOTPROD
     uabd        v16.16b, v16.16b, v18.16b
     uabd        v17.16b, v17.16b, v19.16b
     udot        v0.4s, v16.16b, v16.16b
     udot        v1.4s, v17.16b, v17.16b
-    DISABLE_DOTPROD
 .else
     usubl       v20.8h, v16.8b,  v18.8b
     usubl2      v22.8h, v16.16b, v18.16b
@@ -836,19 +835,16 @@ function pixel_ssd_nv12_core_neon\dotprod, export=1
     smlal       v1.4s,  v23.4h,  v23.4h
     smlal2      v1.4s,  v23.8h,  v23.8h
 .endif
-    subs        w8, w8, #16
     b.ne        2b
 3:
     tbz         w4,  #3,  4f
     ld2         {v16.8b,v17.8b}, [x0], #16
     ld2         {v18.8b,v19.8b}, [x2], #16
 .ifc \dotprod, _dotprod
-    ENABLE_DOTPROD
     uabd        v16.16b, v16.16b, v18.16b
     uabd        v17.16b, v17.16b, v19.16b
     udot        v0.4s, v16.16b, v16.16b
     udot        v1.4s, v17.16b, v17.16b
-    DISABLE_DOTPROD
 .else
     usubl       v20.8h, v16.8b,  v18.8b
     smlal       v0.4s,  v20.4h,  v20.4h
@@ -858,9 +854,9 @@ function pixel_ssd_nv12_core_neon\dotprod, export=1
     smlal2      v1.4s,  v21.8h,  v21.8h
 .endif
 4:
+    subs        w5,  w5,  #1
     add         x0,  x0,  x1
     add         x2,  x2,  x3
-    subs        w5,  w5,  #1
     b.ne        1b
 
     uaddlv      d0, v0.4s
@@ -873,7 +869,9 @@ endfunc
 
 PIXEL_SSD_NV12_CORE_NEON
 #if HAVE_DOTPROD
+ENABLE_DOTPROD
 PIXEL_SSD_NV12_CORE_NEON _dotprod
+DISABLE_DOTPROD
 #endif
 
 .macro pixel_var_8 h

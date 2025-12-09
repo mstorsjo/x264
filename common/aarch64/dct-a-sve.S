@@ -82,7 +82,7 @@ function zigzag_interleave_8x8_cavlc_sve, export=1
     ret
 endfunc
 
-.macro zigzag_sub_4x4 f ac
+.macro zigzag_sub_4x4 f, ac
 function zigzag_sub_4x4\ac\()_\f\()_sve, export=1
     ptrue       p0.s, vl4
     index       z30.s, #0, #FENC_STRIDE/4

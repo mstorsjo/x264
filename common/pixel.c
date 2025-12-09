@@ -1545,6 +1545,8 @@ void x264_pixel_init( uint32_t cpu, x264_pixel_function_t *pixf )
         pixf->var2[PIXEL_8x8]   = x264_pixel_var2_8x8_neon_dotprod;
         pixf->var2[PIXEL_8x16]  = x264_pixel_var2_8x16_neon_dotprod;
         pixf->vsad = x264_pixel_vsad_neon_dotprod;
+
+        pixf->ssim_4x4x2_core = x264_pixel_ssim_4x4x2_core_neon_dotprod;
     }
 #endif // HAVE_DOTPROD
 

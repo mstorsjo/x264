@@ -1029,7 +1029,7 @@ endfunc
 
 #if HAVE_DOTPROD
 ENABLE_DOTPROD
-.macro PIXEL_VAR_WxH_NEON_DOTPROD   w,  h
+.macro PIXEL_VAR_WxH_NEON_DOTPROD w, h
 function pixel_var_\w\()x\h\()_neon_dotprod, export=1
     add         x2, x1, x1
     add         x3, x1, x1, lsl #1
@@ -1055,6 +1055,7 @@ function pixel_var_\w\()x\h\()_neon_dotprod, export=1
     ldr         q19, [x0, x3]
 .endif
     add         x0, x0, x4
+    subs        w5, w5, #4
 
 .if \w == 8
     udot        v0.2s,  v4.8b, v16.8b
@@ -1075,7 +1076,6 @@ function pixel_var_\w\()x\h\()_neon_dotprod, export=1
     udot        v2.4s,  v4.16b, v19.16b
     udot        v3.4s, v19.16b, v19.16b
 .endif
-    subs        w5, w5, #4
     b.ne        1b
 
 .if \w == 8
@@ -1095,7 +1095,7 @@ function pixel_var_\w\()x\h\()_neon_dotprod, export=1
 endfunc
 .endm
 
-.macro PIXEL_VAR2_8xH_NEON_DOTPROD   w,  h,  shift
+.macro PIXEL_VAR2_8xH_NEON_DOTPROD w, h, shift
 function pixel_var2_8x\h\()_neon_dotprod, export=1
     movi        v0.2d, #0
     movi        v1.2d, #0
@@ -1103,7 +1103,7 @@ function pixel_var2_8x\h\()_neon_dotprod, export=1
 
     mov         w5, #\h
 1:
-.rept 2
+.irpc rep, 01
 .if FENC_STRIDE == 16
     ldr         q16, [x0]
     ldr         d17, [x1]
@@ -1118,6 +1118,9 @@ function pixel_var2_8x\h\()_neon_dotprod, export=1
     mov         v17.d[1], v19.d[0]
     add         x0, x0, #FENC_STRIDE
     add         x1, x1, #FDEC_STRIDE
+.if \rep == 0
+    subs        w5, w5, #2
+.endif
 
     usubl       v20.8h,  v16.8b,  v17.8b
     usubl2      v21.8h,  v16.16b, v17.16b
@@ -1127,7 +1130,6 @@ function pixel_var2_8x\h\()_neon_dotprod, export=1
     add         v1.8h,  v1.8h,   v21.8h
     udot        v2.4s,  v22.16b, v22.16b
 .endr
-    subs        w5, w5, #2
     b.ne        1b
 
     addp        v0.8h, v0.8h, v1.8h

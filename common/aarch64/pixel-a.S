@@ -1465,9 +1465,9 @@ function x264_pixel_ssim_4x4x2_core_neon_dotprod, export=1
 
     mov         w5, #4
 1:
-    subs        w5, w5, #1
     ld1         {v16.8b},  [x0], x1
     ld1         {v17.8b},  [x2], x3
+    subs        w5, w5, #1
     udot        v0.2s, v16.8b, v5.8b
     udot        v1.2s, v17.8b, v5.8b
     udot        v2.2s, v16.8b, v16.8b

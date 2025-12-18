@@ -1573,6 +1573,8 @@ void x264_pixel_init( uint32_t cpu, x264_pixel_function_t *pixf )
     if( cpu&X264_CPU_SVE2 )
     {
         INIT_ADS( _sve2 );
+
+        pixf->ssim_end4         = x264_pixel_ssim_end4_sve;
     }
 #endif
 #endif // HAVE_AARCH64

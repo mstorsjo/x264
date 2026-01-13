@@ -150,72 +150,72 @@ endfunc
     sub         v23.8h, v6.8h,  v7.8h
 .endm
 
-.macro pixel_var_sve_8 h
-function pixel_var_8x\h\()_sve, export=1
-    ptrue           p0.h, vl8
-    ld1b            {z16.h}, p0/z, [x0]
-    add             x0, x0, x1
-    ld1b            {z17.h}, p0/z, [x0]
-    add             x0, x0, x1
-    mov             x2,  \h - 4
-    mul             v1.8h,  v16.8h, v16.8h
-    mul             v2.8h,  v17.8h, v17.8h
-    add             v0.8h,  v16.8h,  v17.8h
-    ld1b            {z18.h}, p0/z, [x0]
-    add             x0, x0, x1
-    uaddlp          v1.4s,  v1.8h
-    uaddlp          v2.4s,  v2.8h
-    ld1b            {z19.h}, p0/z, [x0]
-    add             x0, x0, x1
-
-1:  subs            x2,  x2,  #4
-    add             v0.8h,  v0.8h,  v18.8h
-    mul             v24.8h, v18.8h, v18.8h
-    ld1b            {z20.h}, p0/z, [x0]
-    add             x0, x0, x1
-    add             v0.8h,  v0.8h,  v19.8h
-    mul             v25.8h, v19.8h, v19.8h
-    uadalp          v1.4s,  v24.8h
-    ld1b            {z21.h}, p0/z, [x0]
-    add             x0, x0, x1
-    add             v0.8h,  v0.8h,  v20.8h
-    mul             v26.8h, v20.8h, v20.8h
-    uadalp          v2.4s,  v25.8h
-    ld1b            {z18.h}, p0/z, [x0]
-    add             x0, x0, x1
-    add             v0.8h,  v0.8h,  v21.8h
-    mul             v27.8h, v21.8h, v21.8h
-    uadalp          v1.4s,  v26.8h
-    ld1b            {z19.h}, p0/z, [x0]
-    add             x0, x0, x1
-    uadalp          v2.4s,  v27.8h
-    b.gt            1b
-
-    add             v0.8h,  v0.8h,  v18.8h
-    mul             v28.8h, v18.8h, v18.8h
-    add             v0.8h,  v0.8h,  v19.8h
-    mul             v29.8h, v19.8h, v19.8h
-    uadalp          v1.4s,  v28.8h
-    uadalp          v2.4s,  v29.8h
-
-    b               var_end
-endfunc
-.endm
-
-function var_end
-    add             v1.4s,  v1.4s,  v2.4s
-    uaddlv          s0,  v0.8h
-    uaddlv          d1,  v1.4s
-    mov             w0,  v0.s[0]
-    mov             x1,  v1.d[0]
-    orr             x0,  x0,  x1,  lsl #32
-    ret
-endfunc
-
 .macro SUMSUBL_AB_SVE  sum, sub, a, b
     add         \sum,  \a,  \b
     sub         \sub,  \a,  \b
 .endm
+
+function pixel_ssim_end4_sve, export=1
+    ldp         q16, q17, [x0]
+    ldp         q18, q19, [x1]
+    ldp         q20, q21, [x0, #32]
+    ldp         q22, q23, [x1, #32]
+    add         v16.4s,  v16.4s,  v18.4s
+    add         v17.4s,  v17.4s,  v19.4s
+    add         v20.4s,  v20.4s,  v22.4s
+    add         v21.4s,  v21.4s,  v23.4s
+
+    mov         w5,  #4
+    mov         w4,  #0x99bb
+    sub         w2,  w5,  w2
+    mov         w3,  #416                       // ssim_c1 = .01*.01*255*255*64
+    movk        w4,  #0x03, lsl #16             // ssim_c2 = .03*.03*255*255*64*63
+    whilelt     p0.s, w2, w5
+
+    ldr         q24, [x0, #64]
+    ldr         q26, [x1, #64]
+    add         v24.4s,  v24.4s,  v26.4s
+
+    add         v0.4s,  v16.4s,  v17.4s
+    add         v1.4s,  v17.4s,  v20.4s
+    add         v2.4s,  v20.4s,  v21.4s
+    add         v3.4s,  v21.4s,  v24.4s
+
+    dup         v30.4s, w3
+    dup         v31.4s, w4
+
+    transpose   v4.4s,  v5.4s,  v0.4s,  v1.4s
+    transpose   v6.4s,  v7.4s,  v2.4s,  v3.4s
+    transpose   v0.2d,  v1.2d,  v4.2d,  v6.2d
+    transpose   v2.2d,  v3.2d,  v5.2d,  v7.2d
+
+    mul         v16.4s, v0.4s, v2.4s    // s1*s2
+    mul         v0.4s,  v0.4s, v0.4s    // s1*s1
+    shl         v1.4s,  v1.4s, #6
+    mla         v0.4s,  v2.4s, v2.4s    // s1*s1 + s2*s2
+    shl         v3.4s,  v3.4s, #7
+    add         v2.4s, v16.4s, v16.4s   // s1*s2*2
+
+    sub         v1.4s,  v1.4s,  v0.4s   // vars
+    sub         v3.4s,  v3.4s,  v2.4s   // covar*2
+
+    add         v0.4s,  v0.4s,  v30.4s
+    add         v1.4s,  v1.4s,  v31.4s
+    add         v2.4s,  v2.4s,  v30.4s
+    add         v3.4s,  v3.4s,  v31.4s
+
+    scvtf       v0.4s,  v0.4s
+    scvtf       v1.4s,  v1.4s
+    scvtf       v2.4s,  v2.4s
+    scvtf       v3.4s,  v3.4s
+
+    fmul        v0.4s,  v0.4s,  v1.4s
+    fmul        v2.4s,  v2.4s,  v3.4s
+
+    fdiv        v0.4s,  v2.4s,  v0.4s
+    faddv       s0,  p0,  z0.s
+    ret
+endfunc
 
 function pixel_sa8d_8x8_sve, export=1
     ptrue       p0.h, vl8
@@ -462,9 +462,6 @@ SSD_FUNC_SVE   4, 16
 SSD_FUNC_SVE   8, 4
 SSD_FUNC_SVE   8, 8
 
-pixel_var_sve_8  8
-pixel_var_sve_8 16
-
 sa8d_satd_sve_8x8
 
 HADAMARD_AC_SVE  8, 8
@@ -521,3 +518,206 @@ SSD_FUNC_SVE   4, 8
 SSD_FUNC_SVE   4, 16
 
 #endif /* BIT_DEPTH == 8 */
+
+.macro PIXEL_ADS1_SVE  sve_version
+/**
+ * int pixel_ads1(
+ * x0 = int enc_dc[1],
+ * x1 = uint16_t *sums,
+ * w2 = int delta,
+ * x3 = uint16_t *cost_mvx,
+ * x4 = int16_t *mvs,
+ * w5 = int width,
+ * w6 = int thresh)
+ */
+function pixel_ads1_\sve_version, export=1
+    ldr         s31, [x0]
+    dup         z0.s, z31.s[0]  // enc_dc[0]
+
+    index       z4.s, #0, #1  // indices for compactification
+    dup         z6.s, w6      // threshold
+
+    mov         x9, #0  // i
+    mov         x0, #0  // nmv
+
+1:  // for( int i=0; i<width; i++ )
+    whilelt     p0.s, w9, w5
+    b.ge        2f
+
+    ld1h        z16.s, p0/z, [x1, x9, lsl #1]  // sums[i...]
+    ld1h        z20.s, p0/z, [x3, x9, lsl #1]  // cost_mvx[i...]
+    incw        x9
+
+    // int ads = abs( enc_dc[0] - sums[i] ) + cost_mvx[i];
+.ifc \sve_version, sve2
+    saba        z20.s, z16.s, z0.s
+.else
+    sabd        z16.s, p0/m, z16.s, z0.s
+    add         z20.s, z20.s, z16.s
+.endif
+
+    // if( ads < thresh ) mvs[nmv++] = i;
+    cmplt       p1.s, p0/z, z20.s, z6.s
+    compact     z24.s, p1, z4.s
+    cntp        x15, p0, p1.s
+    whilelt     p2.s, xzr, x15
+    st1h        z24.s, p2, [x4, x0, lsl #1]
+    add         x0, x0, x15
+
+    incw        z4.s
+    b           1b
+2:  ret
+endfunc
+.endm
+
+.macro PIXEL_ADS2_SVE  sve_version
+/**
+ * int pixel_ads2(
+ * x0 = int enc_dc[2],
+ * x1 = uint16_t *sums,
+ * w2 = int delta,
+ * x3 = uint16_t *cost_mvx,
+ * x4 = int16_t *mvs,
+ * w5 = int width,
+ * w6 = int thresh)
+ */
+function pixel_ads2_\sve_version, export=1
+    ldr         d31, [x0]
+    dup         z0.s, z31.s[0]  // enc_dc[0]
+    dup         z1.s, z31.s[1]  // enc_dc[1]
+
+    index       z4.s, #0, #1  // indices for compactification
+    dup         z6.s, w6      // threshold
+    
+    mov         x9, #0  // i
+    sxtw        x2, w2
+    add         x2, x1, x2, lsl #1  // sums + delta
+    mov         x0, #0  // nmv
+
+1:  // for( int i=0; i<width; i++ )
+    whilelt     p0.s, w9, w5
+    b.ge        2f
+
+    ld1h        z16.s, p0/z, [x1, x9, lsl #1]  // sums[i...]
+    ld1h        z20.s, p0/z, [x3, x9, lsl #1]  // cost_mvx[i...]
+    ld1h        z17.s, p0/z, [x2, x9, lsl #1]  // sums[i + delta...]
+    incw        x9
+
+    // int ads = abs( enc_dc[0] - sums[i] )
+    //         + abs( enc_dc[1] - sums[i + delta] )
+    //         + cost_mvx[i];
+.ifc \sve_version, sve2
+    saba        z20.s, z16.s, z0.s
+    saba        z20.s, z17.s, z1.s
+.else
+    sabd        z16.s, p0/m, z16.s, z0.s
+    sabd        z17.s, p0/m, z17.s, z1.s
+
+    add         z20.s, z20.s, z16.s
+    add         z20.s, z20.s, z17.s
+.endif
+
+    // if( ads < thresh ) mvs[nmv++] = i;
+    cmplt       p1.s, p0/z, z20.s, z6.s
+    compact     z24.s, p1, z4.s
+    cntp        x15, p0, p1.s
+    whilelt     p2.s, xzr, x15
+    st1h        z24.s, p2, [x4, x0, lsl #1]
+    add         x0, x0, x15
+
+    incw        z4.s
+    b           1b
+2:  ret
+endfunc
+.endm
+
+.macro PIXEL_ADS4_SVE  sve_version
+/**
+ * int pixel_ads4(
+ * x0 = int enc_dc[4],
+ * x1 = uint16_t *sums,
+ * w2 = int delta,
+ * x3 = uint16_t *cost_mvx,
+ * x4 = int16_t *mvs,
+ * w5 = int width,
+ * w6 = int thresh)
+ */
+function pixel_ads4_\sve_version, export=1
+    ldr         q31, [x0]
+    dup         z0.s, z31.s[0]  // enc_dc[0]
+    dup         z1.s, z31.s[1]  // enc_dc[1]
+    dup         z2.s, z31.s[2]  // enc_dc[2]
+    dup         z3.s, z31.s[3]  // enc_dc[3]
+
+    index       z4.s, #0, #1  // indices for compactification
+    dup         z6.s, w6      // threshold
+
+    mov         x9, #0  // i
+    sxtw        x2, w2  // i + delta
+    add         x2, x1, x2, lsl #1  // sums + delta
+    mov         x0, #0  // nmv
+
+    add         x11, x1, #16  // sums + 8
+    add         x12, x2, #16  // sums + delta + 8
+    
+1:  // for( int i=0; i<width; i++ )
+    whilelt     p0.s, w9, w5
+    b.ge        2f
+
+    ld1h        z16.s, p0/z, [x1, x9, lsl #1]  // sums[i...]
+    ld1h        z20.s, p0/z, [x3, x9, lsl #1]  // cost_mvx[i...]
+    ld1h        z17.s, p0/z, [x11, x9, lsl #1]  // sums[i + 8...]
+    ld1h        z18.s, p0/z, [x2, x9, lsl #1]  // sums[i + delta...]
+    ld1h        z19.s, p0/z, [x12, x9, lsl #1]  // sums[i + delta + 8...]
+    incw        x9
+
+    // int ads = abs( enc_dc[0] - sums[0] )
+    //         + abs( enc_dc[1] - sums[8] )
+    //         + abs( enc_dc[2] - sums[delta] )
+    //         + abs( enc_dc[3] - sums[delta+8] )
+    //         + cost_mvx[i];
+.ifc \sve_version, sve2
+    saba        z20.s, z16.s, z0.s
+    saba        z20.s, z17.s, z1.s
+    saba        z20.s, z18.s, z2.s
+    saba        z20.s, z19.s, z3.s
+.else
+    sabd        z16.s, p0/m, z16.s, z0.s
+    sabd        z17.s, p0/m, z17.s, z1.s
+    sabd        z18.s, p0/m, z18.s, z2.s
+    sabd        z19.s, p0/m, z19.s, z3.s
+
+    add         z16.s, z16.s, z17.s
+    add         z18.s, z18.s, z19.s
+    
+    add         z20.s, z20.s, z16.s
+    add         z20.s, z20.s, z18.s
+.endif
+
+    // if( ads < thresh ) mvs[nmv++] = i;
+    cmplt       p1.s, p0/z, z20.s, z6.s
+    compact     z24.s, p1, z4.s
+    cntp        x15, p0, p1.s
+    whilelt     p2.s, xzr, x15
+    st1h        z24.s, p2, [x4, x0, lsl #1]
+    add         x0, x0, x15
+
+    incw        z4.s
+    b           1b
+2:  ret
+endfunc
+.endm
+
+PIXEL_ADS1_SVE  sve
+PIXEL_ADS2_SVE  sve
+PIXEL_ADS4_SVE  sve
+
+#if HAVE_SVE2
+ENABLE_SVE2
+
+PIXEL_ADS1_SVE  sve2
+PIXEL_ADS2_SVE  sve2
+PIXEL_ADS4_SVE  sve2
+
+DISABLE_SVE2
+#endif

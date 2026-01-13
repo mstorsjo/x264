@@ -1556,6 +1556,7 @@ void x264_pixel_init( uint32_t cpu, x264_pixel_function_t *pixf )
         pixf->vsad = x264_pixel_vsad_neon_dotprod;
 
         pixf->ssd_nv12_core   = x264_pixel_ssd_nv12_core_neon_dotprod;
+        pixf->ssim_4x4x2_core = x264_pixel_ssim_4x4x2_core_neon_dotprod;
     }
 #endif // HAVE_DOTPROD
 
